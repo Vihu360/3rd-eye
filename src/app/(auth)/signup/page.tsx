@@ -12,7 +12,6 @@ import {
 	FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import signupFormSchema from "@/schemas/signupFormSchema";
 import * as z from "zod";
 import { useState } from "react";
 import { IconLoader3 } from "@tabler/icons-react";
@@ -21,17 +20,27 @@ import axios, { AxiosError } from "axios";
 import { ApiResponse } from "@/types/apiResponse";
 import { useRouter } from "next/navigation";
 
+// Zod schemas for validation
+const signupSchema = z.object({
+	email: z.string().email("Invalid email address"),
+	password: z.string().min(8, "Password must be at least 8 characters"),
+	fullName: z.string().min(1, "Full name is required"),
+	phoneNumber: z.string().min(10, "please enter correct phone no"),
+});
+
+const signinSchema = z.object({
+	email: z.string().email("Invalid email address"),
+	password: z.string().min(1, "password is required")
+});
+
 const SignUp: React.FC = () => {
-
-	const [isSubmitting, setisSubmitting] = useState(false);
+	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [isSignInClicked, setIsSignInClicked] = useState(false);
-
 	const { toast } = useToast();
 	const router = useRouter();
 
-
-	const form = useForm<z.infer<typeof signupFormSchema>>({
-		resolver: zodResolver(signupFormSchema),
+	const form = useForm({
+		resolver: zodResolver(isSignInClicked ? signinSchema : signupSchema),
 		defaultValues: {
 			email: "",
 			password: "",
@@ -44,57 +53,61 @@ const SignUp: React.FC = () => {
 		setIsSignInClicked((prevState) => !prevState);
 	};
 
-
-	const onSubmit = async (values: z.infer<typeof signupFormSchema>) => {
-
-		setisSubmitting(true);
+	const onSubmit = async (values: z.infer<typeof signupSchema>) => {
+		setIsSubmitting(true);
 
 		try {
-
-			const response = await axios.post("/api/signup", values);
-
-			console.log(response.data);
-
-			toast({
-				title: "Registration Successful",
-				description: "Please verify your mail and login",
-			})
-
-			router.replace(`/verify/${values.email}/`);
-
-
+			let response;
+			if (isSignInClicked) {
+				// Sign In Logic
+				response = await axios.post("/api/signin", {
+					email: values.email,
+					password: values.password,
+				});
+				toast({
+					title: "Login Successful",
+					description: response.data.message,
+				});
+				router.replace(`/home`);
+			} else {
+				// Sign Up Logic
+				const response = await axios.post("/api/signup", {
+					email: values.email,
+					password: values.password,
+					fullName: values.fullName,
+					phoneNumber: values.phoneNumber,
+				});
+				toast({
+					title: "Registration Successful",
+					description: response.data.message ?? "Please verify your email and login.",
+				});
+				router.replace(`/verify/${values.email}/`);
+			}
 		} catch (error) {
-
-			console.error('Error creating brand:', error);
 			const axiosError = error as AxiosError<ApiResponse>;
 			toast({
-				title: 'Failed',
-				description: axiosError.response?.data.message ?? 'An error occurred while creating your Brand. Please try again.',
-				variant: 'destructive'
+				title: "Failed",
+				description: axiosError.response?.data.message ?? "An error occurred. Please try again.",
+				variant: "destructive",
 			});
+		} finally {
+			setIsSubmitting(false);
 		}
-		finally {
-			setisSubmitting(false);
-		}
-	}
-
+	};
 
 	return (
 		<div className="min-h-screen flex items-center justify-center bg-black text-white">
-			<div className='w-full h-full max-w-md p-10 sm:p-8 space-y-8 bg-black sm:shadow-md sm:shadow-slate-800 rounded-lg flex flex-col justify-center '>
+			<div className='w-full h-full max-w-md p-10 sm:p-8 space-y-8 bg-black sm:shadow-md sm:shadow-slate-800 rounded-lg flex flex-col justify-center'>
 				<div className="text-center">
 					<h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl mb-6">
-						Join us
+						{isSignInClicked ? "Sign In" : "Join Us"}
 					</h1>
-
 				</div>
 
 				<Form {...form}>
 					<form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-
 						{/* Full name field */}
-						{isSignInClicked ? null : (
-
+						{!isSignInClicked && (
 							<FormField
 								control={form.control}
 								name="fullName"
@@ -108,9 +121,7 @@ const SignUp: React.FC = () => {
 									</FormItem>
 								)}
 							/>
-
 						)}
-
 
 						<FormField
 							control={form.control}
@@ -119,16 +130,15 @@ const SignUp: React.FC = () => {
 								<FormItem>
 									<FormLabel>Email</FormLabel>
 									<FormControl>
-										<Input className="bg-[#161618] h-11 border-black hover:border-slate-600 " placeholder="abc@example.com" {...field} />
+										<Input className="bg-[#161618] h-11 border-black hover:border-slate-600" placeholder="abc@example.com" {...field} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
 							)}
 						/>
 
-
-						{isSignInClicked ? null : (
-
+						{/* Phone number field for sign-up only */}
+						{!isSignInClicked && (
 							<FormField
 								control={form.control}
 								name="phoneNumber"
@@ -142,9 +152,7 @@ const SignUp: React.FC = () => {
 									</FormItem>
 								)}
 							/>
-
 						)}
-
 
 						{/* Password field */}
 						<FormField
@@ -162,10 +170,17 @@ const SignUp: React.FC = () => {
 						/>
 
 						{/* Submit button */}
-						<Button className="w-full h-10" type="submit"> {isSubmitting ? (<IconLoader3 className=" w-5 animate-spin" />) : ("submit")}</Button>
-						<div className="full flex items-center justify-center py-2">
-							<p className="">Already have an account? <span className="underline underline-offset-2 cursor-pointer" onClick={toggleSignInSignUp}>
-								{isSignInClicked ? "Sign Up" : "Sign In"}</span></p>
+						<Button className="w-full h-10" type="submit" disabled={isSubmitting}>
+							{isSubmitting ? (<IconLoader3 className="w-5 animate-spin" />) : ("Submit")}
+						</Button>
+
+						<div className="flex items-center justify-center py-2">
+							<p>
+								{isSignInClicked ? "Don't have an account?" : "Already have an account?"}
+								<span className="underline underline-offset-2 cursor-pointer" onClick={toggleSignInSignUp}>
+									{isSignInClicked ? " Sign Up" : " Sign In"}
+								</span>
+							</p>
 						</div>
 					</form>
 				</Form>

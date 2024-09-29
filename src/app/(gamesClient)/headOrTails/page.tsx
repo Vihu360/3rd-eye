@@ -1,17 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import axios, { AxiosError } from "axios";
 import Image from "next/image";
-import { IconMoneybag } from '@tabler/icons-react';
-import { IconLoader3 } from "@tabler/icons-react";
+import { IconMoneybag, IconLoader3 } from '@tabler/icons-react';
 import { useToast } from "@/hooks/use-toast";
 import { ApiResponse } from "@/types/apiResponse";
-import { useEffect } from "react";
-
 
 const HeadsOrTails = () => {
-
 	const { toast } = useToast();
 
 	const [outcome, setOutcome] = useState<null | string>(null);
@@ -24,43 +20,39 @@ const HeadsOrTails = () => {
 
 	useEffect(() => {
 		// Fetch initial credits when component mounts
+		const fetchCredits = async () => {
+			try {
+				const response = await axios.get("/api/getCredits");
+				setCredits(response.data.credits);
+			} catch (error) {
+				const axiosError = error as AxiosError<ApiResponse>;
+				toast({
+					title: 'Failed',
+					description: axiosError.response?.data.message ?? 'An error occurred. Please try again.',
+					variant: 'destructive',
+				});
+			}
+		};
+
 		fetchCredits();
-	},[]);
+	}, [toast]); // Add toast to dependencies if it comes from context
 
-	const fetchCredits = async () => {
-		try {
-			const response = await axios.get("/api/getCredits");
-			setCredits(response.data.credits);
-		} catch (error) {
-
-
-			const axiosError = error as AxiosError<ApiResponse>;
-
-			toast({
-				title: 'Failed',
-				description: axiosError.response?.data.message ?? 'An error occurred. Please try again.',
-				variant: 'destructive',
-			});
-		}
-	};
-
-
-	const headTailSelecthandler = (button: string) => {
+	const headTailSelectHandler = (button: string) => {
 		setActiveButton(button);
-		setPrediction(button === "Heads" ? "Heads" : "Tails" || "Tails" ? "Tails" : "Heads");
+		setPrediction(button === "Heads" ? "Heads" : "Tails");
 		console.log("Button clicked:", button);
 	};
 
 	const flipCoinButtonHandler = () => {
 		setCoinSpin(true);
 		playGame();
-	}
+	};
 
 	const betAmountClickHandler = (amount: number) => {
 		setSelectedBetAmount(amount); // Update selected bet amount
 		setBetAmount(amount);
 		console.log("bet amount", amount);
-	}
+	};
 
 	const playGame = async () => {
 		try {
@@ -70,17 +62,14 @@ const HeadsOrTails = () => {
 			setOutcome(data.outcome);
 			console.log(outcome);
 		} catch (error) {
-
-			console.log("err from backend", error)
-
+			console.log("err from backend", error);
 			const axiosError = error as AxiosError<ApiResponse>;
 			toast({
 				title: 'Failed',
 				description: axiosError.response?.data.message ?? 'An error occurred while creating your Brand. Please try again.',
 				variant: 'destructive'
 			});
-		}
-		finally {
+		} finally {
 			setCoinSpin(false);
 		}
 	};
@@ -89,12 +78,12 @@ const HeadsOrTails = () => {
 		return (
 			<button
 				onClick={() => betAmountClickHandler(amount)}
-				className={`w-14 p-4 ${selectedBetAmount === amount ? 'bg-neutral-200 text-black' : 'bg-[#161618] text-white'} rounded-xl flex justify-center items-center cursor-pointer`}>
+				className={`w-14 p-4 ${selectedBetAmount === amount ? 'bg-neutral-200 text-black' : 'bg-[#161618] text-white'} rounded-xl flex justify-center items-center cursor-pointer`}
+			>
 				{amount}
 			</button>
 		);
 	};
-
 
 	return (
 		<div className="min-w-screen m-h-screen bg-[#000] flex flex-col justify-start items-center text-neutral-200 font-Rubik">
@@ -144,17 +133,17 @@ const HeadsOrTails = () => {
 					<p className="text-lg">My choice : <span className="text-yellow-500 text-base">{prediction}</span></p>
 				</div>
 
-				<div className=" w-full h-full">
-					<div className=" flex justify-center items-center rounded-xl">
+				<div className="w-full h-full">
+					<div className="flex justify-center items-center rounded-xl">
 						<button
 							className={`bg-[#161618] w-32 h-12 rounded-xl uppercase font-semibold text-md ${activeButton === 'Heads' ? 'bg-neutral-200 text-black' : ''}`}
-							onClick={() => headTailSelecthandler('Heads')}
+							onClick={() => headTailSelectHandler('Heads')}
 						>
 							Heads
 						</button>
 						<button
 							className={`bg-[#161618] w-32 h-12 uppercase rounded-xl font-semibold text-md ${activeButton === 'Tails' ? 'bg-neutral-200 text-black' : 'text-white'}`}
-							onClick={() => headTailSelecthandler('Tails')}
+							onClick={() => headTailSelectHandler('Tails')}
 						>
 							Tails
 						</button>
@@ -162,16 +151,13 @@ const HeadsOrTails = () => {
 				</div>
 
 				{/* play the game button */}
-
 				<div className="w-full h-full flex justify-center items-center py-8 pb-32">
-					<button onClick={() => flipCoinButtonHandler()} className={`bg-[#161618] h-12 w-64 rounded-xl uppercase font-semibold text-md flex justify-center items-center `}>
+					<button onClick={flipCoinButtonHandler} className={`bg-[#161618] h-12 w-64 rounded-xl uppercase font-semibold text-md flex justify-center items-center`}>
 						<p className={`${coinSpin ? 'animate-spin' : ''}`}>
 							{coinSpin ? (<IconLoader3 />) : 'FLIP THE COIN'}
 						</p>
 					</button>
 				</div>
-
-
 			</div>
 		</div>
 	);
